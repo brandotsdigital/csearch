@@ -1,13 +1,206 @@
 <?php
 /**
  * Setup Script - Initialize Database and Add Sample Data
- * Run this once to set up your product scraper system
- * 
- * Usage: php setup.php
+ * Web-based setup for Product Discount Scraper
  */
 
-// Include database configuration
-require_once '../private/config/database.php';
+// Start output buffering and enable error reporting for debugging
+ob_start();
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚀 Product Scraper Setup</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background: #f5f5f5; }
+        .container { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .success { color: #28a745; }
+        .error { color: #dc3545; }
+        .warning { color: #ffc107; }
+        .info { color: #007bff; }
+        .step { background: #f8f9fa; padding: 15px; margin: 10px 0; border-left: 4px solid #007bff; }
+        pre { background: #f1f1f1; padding: 10px; border-radius: 5px; overflow-x: auto; font-size: 12px; }
+        .btn { background: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 10px 5px; }
+        .progress { width: 100%; background: #e9ecef; border-radius: 5px; margin: 10px 0; }
+        .progress-bar { height: 20px; background: #007bff; border-radius: 5px; text-align: center; color: white; line-height: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Product Discount Scraper Setup</h1>
+        <p class="info">Setting up your automated discount monitoring system...</p>
+        
+        <?php
+        // Try to include database configuration
+        $config_found = false;
+        $possible_paths = [
+            'private/config/database.php',
+            '../private/config/database.php',
+            './private/config/database.php'
+        ];
+        
+        foreach ($possible_paths as $path) {
+            if (file_exists($path)) {
+                require_once $path;
+                $config_found = true;
+                echo "<p class='success'>✅ Database configuration loaded from: $path</p>";
+                break;
+            }
+        }
+        
+        if (!$config_found) {
+            echo "<div class='step'>";
+            echo "<h3 class='error'>❌ Database Configuration Missing</h3>";
+            echo "<p>Please ensure the database configuration file exists at: <code>private/config/database.php</code></p>";
+            echo "<p>Check that all files were uploaded correctly from the repository.</p>";
+            echo "</div>";
+        } else {
+            try {
+                echo "<div class='step'>";
+                echo "<h3>🔌 Testing Database Connection</h3>";
+                
+                $db = new Database();
+                $conn = $db->getConnection();
+                echo "<p class='success'>✅ Connected to database: pyramid_new</p>";
+                echo "<div class='progress'><div class='progress-bar' style='width: 25%'>25%</div></div>";
+                echo "</div>";
+                
+                // Check tables
+                echo "<div class='step'>";
+                echo "<h3>🗄️ Verifying Database Tables</h3>";
+                
+                $required_tables = ['products', 'price_history', 'categories', 'notifications', 'settings', 'scraping_logs'];
+                $existing_tables = [];
+                
+                foreach ($required_tables as $table) {
+                    $stmt = $conn->prepare("SHOW TABLES LIKE ?");
+                    $stmt->execute([$table]);
+                    if ($stmt->fetch()) {
+                        $existing_tables[] = $table;
+                        echo "<p class='success'>✅ $table</p>";
+                    } else {
+                        echo "<p class='error'>❌ $table (missing)</p>";
+                    }
+                }
+                
+                if (count($existing_tables) < count($required_tables)) {
+                    echo "<div class='warning'>";
+                    echo "<h4>⚠️ Import Database Schema Required</h4>";
+                    echo "<p><strong>Action needed:</strong> Import database_setup.sql first</p>";
+                    echo "<ol>";
+                    echo "<li>cPanel → phpMyAdmin</li>";
+                    echo "<li>Select database: <strong>pyramid_new</strong></li>";
+                    echo "<li>Import → Upload <strong>database_setup.sql</strong></li>";
+                    echo "<li><a href='?' class='btn'>🔄 Refresh this page</a></li>";
+                    echo "</ol>";
+                    echo "</div>";
+                } else {
+                    echo "<p class='success'>✅ All tables verified</p>";
+                    echo "<div class='progress'><div class='progress-bar' style='width: 60%'>60%</div></div>";
+                    echo "</div>";
+                    
+                    // Initialize settings
+                    echo "<div class='step'>";
+                    echo "<h3>⚙️ Configuring System Settings</h3>";
+                    
+                    $settings = [
+                        ['notification_threshold', '20', 'Minimum discount for alerts'],
+                        ['admin_email', 'admin@pyramidci.org', 'Admin email address'],
+                        ['site_title', 'Pyramid Discount Monitor', 'Site title'],
+                        ['scraping_interval', '3600', 'Scraping interval (seconds)'],
+                        ['smtp_host', 'localhost', 'Email server host'],
+                        ['smtp_port', '587', 'Email server port']
+                    ];
+                    
+                    foreach ($settings as $setting) {
+                        $check = $conn->prepare("SELECT COUNT(*) FROM settings WHERE setting_key = ?");
+                        $check->execute([$setting[0]]);
+                        
+                        if ($check->fetchColumn() == 0) {
+                            $insert = $conn->prepare("INSERT INTO settings (setting_key, setting_value, description) VALUES (?, ?, ?)");
+                            $insert->execute($setting);
+                            echo "<p class='success'>✅ {$setting[0]}</p>";
+                        } else {
+                            echo "<p class='info'>ℹ️ {$setting[0]} (exists)</p>";
+                        }
+                    }
+                    
+                    echo "<div class='progress'><div class='progress-bar' style='width: 85%'>85%</div></div>";
+                    echo "</div>";
+                    
+                    // Setup categories
+                    echo "<div class='step'>";
+                    echo "<h3>📁 Setting Up Categories</h3>";
+                    
+                    $cat_check = $conn->prepare("SELECT COUNT(*) FROM categories");
+                    $cat_check->execute();
+                    
+                    if ($cat_check->fetchColumn() == 0) {
+                        $categories = [
+                            ['Electronics', 'Phones, tablets, computers'],
+                            ['Clothing', 'Fashion and accessories'],
+                            ['Home & Garden', 'Furniture and appliances'],
+                            ['Sports', 'Fitness and sporting goods']
+                        ];
+                        
+                        foreach ($categories as $cat) {
+                            $insert = $conn->prepare("INSERT INTO categories (name, description, is_active) VALUES (?, ?, 1)");
+                            $insert->execute($cat);
+                            echo "<p class='success'>✅ {$cat[0]}</p>";
+                        }
+                    } else {
+                        echo "<p class='info'>ℹ️ Categories already exist</p>";
+                    }
+                    
+                    echo "<div class='progress'><div class='progress-bar' style='width: 100%'>100%</div></div>";
+                    echo "</div>";
+                    
+                    // Success message
+                    echo "<div class='step' style='background: #d4edda; border-left-color: #28a745;'>";
+                    echo "<h3 class='success'>🎉 Setup Complete!</h3>";
+                    echo "<p>Your Product Discount Scraper is ready!</p>";
+                    
+                    echo "<div style='margin: 20px 0;'>";
+                    echo "<a href='index.php' class='btn'>🏠 Dashboard</a>";
+                    echo "<a href='admin.php' class='btn'>⚙️ Admin Panel</a>";
+                    echo "<a href='test_system.php' class='btn'>🧪 Test System</a>";
+                    echo "</div>";
+                    
+                    echo "<h4>✅ System Status:</h4>";
+                    echo "<ul>";
+                    echo "<li>Database connected: pyramid_new</li>";
+                    echo "<li>All tables verified</li>";
+                    echo "<li>Settings configured</li>";
+                    echo "<li>Categories initialized</li>";
+                    echo "<li>Ready for product monitoring</li>";
+                    echo "</ul>";
+                    echo "</div>";
+                }
+                
+            } catch (Exception $e) {
+                echo "<div class='step'>";
+                echo "<h3 class='error'>❌ Setup Error</h3>";
+                echo "<p class='error'>Error: " . htmlspecialchars($e->getMessage()) . "</p>";
+                echo "<h4>🔧 Check These:</h4>";
+                echo "<ul>";
+                echo "<li>Database 'pyramid_new' exists in cPanel</li>";
+                echo "<li>User 'pyramad_new' has full permissions</li>";
+                echo "<li>Password 'omnamo@@333' is correct</li>";
+                echo "<li>database_setup.sql has been imported</li>";
+                echo "</ul>";
+                echo "<p><a href='?' class='btn'>🔄 Try Again</a></p>";
+                echo "</div>";
+            }
+        }
+        ?>
+    </div>
+</body>
+</html><?php ob_end_flush(); ?>
 
 echo "===============================================\n";
 echo "Product Discount Scraper - Setup Script\n";
