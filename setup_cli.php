@@ -37,15 +37,17 @@ try {
     $conn = $db->getConnection();
     echo "   ✅ Database connection successful\n\n";
     
-    // Check if tables exist
+    // Check if tables exist - FIXED VERSION
     echo "2. Checking database tables...\n";
     $tables = ['products', 'price_history', 'categories', 'notifications', 'settings', 'scraping_logs'];
     $existingTables = [];
     
+    // Get all tables in database
+    $stmt = $conn->query("SHOW TABLES");
+    $allTables = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    
     foreach ($tables as $table) {
-        $stmt = $conn->prepare("SHOW TABLES LIKE ?");
-        $stmt->execute([$table]);
-        if ($stmt->fetch()) {
+        if (in_array($table, $allTables)) {
             $existingTables[] = $table;
             echo "   ✅ Table '$table' exists\n";
         } else {
@@ -256,11 +258,22 @@ try {
     
     // Display final statistics
     echo "7. Final system status:\n";
-    $stats = $db->getStats();
-    echo "   📊 Total Products: " . number_format($stats['total_products']) . "\n";
-    echo "   📊 Active Deals: " . number_format($stats['active_deals']) . "\n";
-    echo "   📊 Price Records: " . number_format($stats['total_price_records']) . "\n";
-    echo "   📊 Pending Notifications: " . number_format($stats['pending_notifications']) . "\n\n";
+    try {
+        // Get statistics directly from database
+        $totalProducts = $conn->query("SELECT COUNT(*) FROM products")->fetchColumn();
+        $activeProducts = $conn->query("SELECT COUNT(*) FROM products WHERE status = 'active'")->fetchColumn();
+        $priceRecords = $conn->query("SELECT COUNT(*) FROM price_history")->fetchColumn();
+        $categories = $conn->query("SELECT COUNT(*) FROM categories")->fetchColumn();
+        $settings = $conn->query("SELECT COUNT(*) FROM settings")->fetchColumn();
+        
+        echo "   📊 Total Products: " . number_format($totalProducts) . "\n";
+        echo "   📊 Active Products: " . number_format($activeProducts) . "\n";
+        echo "   📊 Price Records: " . number_format($priceRecords) . "\n";
+        echo "   📊 Categories: " . number_format($categories) . "\n";
+        echo "   📊 Settings: " . number_format($settings) . "\n\n";
+    } catch (Exception $e) {
+        echo "   ⚠️ Could not fetch statistics: " . $e->getMessage() . "\n\n";
+    }
     
     // Configuration instructions
     echo "===============================================\n";
@@ -289,7 +302,15 @@ try {
     
 } catch (Exception $e) {
     echo "❌ Setup failed: " . $e->getMessage() . "\n";
-    echo "Please check your database configuration and try again.\n";
+    echo "📋 Error Details:\n";
+    echo "   File: " . $e->getFile() . "\n";
+    echo "   Line: " . $e->getLine() . "\n\n";
+    echo "🔧 Troubleshooting:\n";
+    echo "1. Verify database exists: pyramid_new\n";
+    echo "2. Check user permissions: pyramad_new\n";
+    echo "3. Import database schema: database_setup.sql\n";
+    echo "4. Verify password: omnamo@@333\n\n";
+    echo "💡 Make sure you've imported database_setup.sql via phpMyAdmin first!\n";
     exit(1);
 }
 ?>
