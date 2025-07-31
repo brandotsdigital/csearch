@@ -4,11 +4,11 @@
  * Handles MySQL database connection for the product scraper
  */
 class Database {
-    // Database configuration - UPDATE THESE WITH YOUR ACTUAL VALUES
+    // Database configuration - UPDATED WITH YOUR CPANEL CREDENTIALS
     private $host = 'localhost';
-    private $username = 'your_db_user';      // Change this to your database username
-    private $password = 'your_db_password';  // Change this to your database password  
-    private $database = 'product_scraper';   // Change this to your database name
+    private $username = 'pyramid_new';       // Your cPanel database user
+    private $password = 'omnamo@@333';       // Your cPanel database password  
+    private $database = 'pyramid_new';       // Your cPanel database name
     private $connection;
     
     public function __construct() {
